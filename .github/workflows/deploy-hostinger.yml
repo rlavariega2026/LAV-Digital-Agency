@@ -43,7 +43,7 @@ jobs:
           const c = new ftp.Client(20000);
           try {
             await c.access({host:process.env.FTP_SERVER,user:process.env.FTP_USERNAME,password:process.env.FTP_PASSWORD,port:Number(process.env.FTP_PORT||21),secure:false});
-            for (const dir of ['/domains/lavdigitalagency.com/public_html/','/domains/lavdigitalagency.com/public_html/assets/','/domains/lavdigitalagency.com/public_html/images/']) {
+            for (const dir of ['/domains/lavdigitalagency.com/public_html/','/domains/lavdigitalagency.com/public_html/assets/','/domains/lavdigitalagency.com/public_html/images/','/domains/lavdigitalagency.com/public_html/assets/servicios/']) {
               try {
                 const list=await c.list(dir);
                 console.log('REMOTE_DIR '+dir);
