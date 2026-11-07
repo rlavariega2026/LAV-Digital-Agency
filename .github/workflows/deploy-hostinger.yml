@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Inspect, publish and verify landing page
+    name: Publish and verify LAV Digital MKT
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -29,55 +29,7 @@ jobs:
           mkdir -p deploy
           cp index.html deploy/index.html
 
-      - name: Inspect FTP directories using the working FTP protocol
-        env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_PORT: ${{ secrets.FTP_PORT }}
-        run: |
-          npm install --no-save basic-ftp
-          node <<'NODE'
-          const ftp = require("basic-ftp");
-          (async () => {
-            const client = new ftp.Client(15000);
-            client.ftp.verbose = false;
-            try {
-              await client.access({
-                host: process.env.FTP_SERVER,
-                port: Number(process.env.FTP_PORT),
-                user: process.env.FTP_USERNAME,
-                password: process.env.FTP_PASSWORD,
-                secure: false
-              });
-              const paths = [
-                "/", ".",
-                "/public_html", "public_html",
-                "/lavdigitalagency.com", "lavdigitalagency.com",
-                "/lavdigitalagency.com/public_html", "lavdigitalagency.com/public_html",
-                "/domains", "domains",
-                "/domains/lavdigitalagency.com/public_html",
-                "domains/lavdigitalagency.com/public_html"
-              ];
-              for (const path of paths) {
-                try {
-                  const entries = await client.list(path);
-                  console.log("FTP_DIRECTORY " + path + " => " +
-                    entries.map(e => e.name + (e.isDirectory ? "/" : "")).slice(0, 80).join(" | "));
-                } catch (e) {
-                  console.log("FTP_DIRECTORY " + path + " => ERROR: " + e.message);
-                }
-              }
-            } catch (e) {
-              console.log("FTP_CONNECTION_ERROR: " + e.message);
-              process.exitCode = 1;
-            } finally {
-              client.close();
-            }
-          })();
-          NODE
-
-      - name: Upload landing page to Hostinger
+      - name: Publish index.html to the verified Hostinger document root
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -86,28 +38,25 @@ jobs:
           port: ${{ secrets.FTP_PORT }}
           protocol: ftp
           local-dir: ./deploy/
-          # Exact destination supplied for lavdigitalagency.com in Hostinger.
-          server-dir: lavdigitalagency.com/public_html/
+          # Verified by FTP directory listing as the document root serving lavdigitalagency.com.
+          server-dir: /domains/lavdigitalagency.com/public_html/
           dangerous-clean-slate: false
           log-level: verbose
 
-      - name: Diagnose the HTML currently served by the public domain
+      - name: Verify the public website received this exact landing page
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location --max-time 25 \
             -H 'Cache-Control: no-cache, no-store' \
             "https://lavdigitalagency.com/?deployment_check=${GITHUB_SHA}" \
-            -D live-headers.txt -o live-index.html
-          echo "===== PUBLIC RESPONSE HEADERS ====="
-          sed -n '1,25p' live-headers.txt
-          echo "===== PUBLIC HTML SUMMARY ====="
-          wc -c live-index.html
-          grep -Eio '<title>[^<]*</title>|LAV landing deployment target corrected|Custom app development|PVC NFC cards may incur shipping costs within the USA|Las tarjetas PVC NFC pueden generar costo de envío en USA' live-index.html | head -30 || true
-          echo "===== LOCAL/PUBLIC SHA256 ====="
-          sha256sum index.html live-index.html
+            -o live-index.html
           if grep -q 'LAV landing deployment target corrected' live-index.html; then
             echo "PUBLIC_DEPLOYMENT_VERIFIED"
           else
-            echo "::error::FTP destination differs from the document currently served by the public domain."
+            echo "Public title:"
+            grep -Eio '<title>[^<]*</title>' live-index.html | head -1 || true
+            echo "Public response SHA:"
+            sha256sum live-index.html
+            echo "::error::The public domain is not serving the newly published index.html."
             exit 1
           fi
