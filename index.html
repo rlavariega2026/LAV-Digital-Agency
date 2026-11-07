@@ -76,4 +76,5 @@ document.querySelectorAll('.lang-btn').forEach(btn=>btn.addEventListener('click'
 document.getElementById('year').textContent=new Date().getFullYear();setLanguage('en');
 document.getElementById('contactForm').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget);const lang=document.documentElement.lang;const lines=[lang==='es'?'Hola, LAV Digital MKT. Quiero información sobre sus servicios.':'Hello, LAV Digital MKT. I would like information about your services.',(lang==='es'?'Nombre: ':'Name: ')+f.get('name'),(lang==='es'?'Negocio: ':'Business: ')+(f.get('business')|| (lang==='es'?'No indicado':'Not specified')),(lang==='es'?'Servicio: ':'Service: ')+f.get('service'),(lang==='es'?'Proyecto: ':'Project: ')+f.get('message')];window.open('https://wa.me/527774418793?text='+encodeURIComponent(lines.join('\n')),'_blank','noopener,noreferrer')});
 </script>
+<!-- LAV landing deployment target corrected -->
 </body></html>
