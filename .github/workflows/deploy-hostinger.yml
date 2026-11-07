@@ -38,8 +38,7 @@ jobs:
           port: ${{ secrets.FTP_PORT }}
           protocol: ftp
           local-dir: ./deploy/
-          # The FTP account must be rooted at lavdigitalagency.com/public_html/
-          # so ./ maps to the exact Hostinger destination folder.
-          server-dir: ./
+          # Explicit Hostinger destination provided for this site.
+          server-dir: lavdigitalagency.com/public_html/
           dangerous-clean-slate: false
           log-level: standard
