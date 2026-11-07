@@ -34,7 +34,7 @@ jobs:
           set +x
           for path in "" "public_html/" "domains/" "domains/lavdigitalagency.com/" "domains/lavdigitalagency.com/public_html/" "lavdigitalagency.com/" "lavdigitalagency.com/public_html/"; do
             echo "===== FTP path: /${path} ====="
-            curl --silent --show-error --list-only --user "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$FTP_SERVER:$FTP_PORT/${path}" || echo "[No se pudo listar esta ruta]"
+            curl --max-time 5 --silent --show-error --list-only --user "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$FTP_SERVER:$FTP_PORT/${path}" || echo "[No se pudo listar esta ruta]"
           done
 
       - name: Prepare deployment folder
@@ -43,6 +43,7 @@ jobs:
           cp index.html deploy/index.html
 
       - name: Upload landing page to Hostinger
+        if: false # Paused until the real public_html FTP path is confirmed.
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
