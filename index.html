@@ -127,4 +127,5 @@ nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{nav.classLi
 document.getElementById('year').textContent=new Date().getFullYear();
 document.getElementById('contactForm').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget);const lines=['Hello, LAV Digital MKT. I would like information about your services.','Name: '+f.get('name'),'Business: '+(f.get('business')||'Not provided'),'Service: '+f.get('service'),'Project: '+f.get('message')];window.open('https://wa.me/527774418793?text='+encodeURIComponent(lines.join('\n')),'_blank','noopener,noreferrer')});
 </script>
+<!-- Hostinger deployment workflow -->
 </body></html>
