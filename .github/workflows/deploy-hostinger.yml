@@ -1,0 +1,45 @@
+name: Deploy LAV Digital MKT to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "index.html"
+      - ".github/workflows/deploy-hostinger.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lav-digital-mkt-hostinger
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Publish landing page
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare deployment folder
+        run: |
+          mkdir -p deploy
+          cp index.html deploy/index.html
+
+      - name: Upload landing page to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          protocol: ftp
+          local-dir: ./deploy/
+          # The FTP account must be rooted at lavdigitalagency.com/public_html/
+          # so ./ maps to the exact Hostinger destination folder.
+          server-dir: ./
+          dangerous-clean-slate: false
+          log-level: standard
