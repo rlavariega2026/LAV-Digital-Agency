@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Publish and verify landing page
+    name: Inspect, publish and verify landing page
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -28,6 +28,54 @@ jobs:
         run: |
           mkdir -p deploy
           cp index.html deploy/index.html
+
+      - name: Inspect FTP directories using the working FTP protocol
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+        run: |
+          npm install --no-save basic-ftp
+          node <<'NODE'
+          const ftp = require("basic-ftp");
+          (async () => {
+            const client = new ftp.Client(15000);
+            client.ftp.verbose = false;
+            try {
+              await client.access({
+                host: process.env.FTP_SERVER,
+                port: Number(process.env.FTP_PORT),
+                user: process.env.FTP_USERNAME,
+                password: process.env.FTP_PASSWORD,
+                secure: false
+              });
+              const paths = [
+                "/", ".",
+                "/public_html", "public_html",
+                "/lavdigitalagency.com", "lavdigitalagency.com",
+                "/lavdigitalagency.com/public_html", "lavdigitalagency.com/public_html",
+                "/domains", "domains",
+                "/domains/lavdigitalagency.com/public_html",
+                "domains/lavdigitalagency.com/public_html"
+              ];
+              for (const path of paths) {
+                try {
+                  const entries = await client.list(path);
+                  console.log("FTP_DIRECTORY " + path + " => " +
+                    entries.map(e => e.name + (e.isDirectory ? "/" : "")).slice(0, 80).join(" | "));
+                } catch (e) {
+                  console.log("FTP_DIRECTORY " + path + " => ERROR: " + e.message);
+                }
+              }
+            } catch (e) {
+              console.log("FTP_CONNECTION_ERROR: " + e.message);
+              process.exitCode = 1;
+            } finally {
+              client.close();
+            }
+          })();
+          NODE
 
       - name: Upload landing page to Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -43,23 +91,23 @@ jobs:
           dangerous-clean-slate: false
           log-level: verbose
 
-      - name: Verify the public website received this exact version
-        env:
-          EXPECTED_SHA: ${{ github.sha }}
+      - name: Diagnose the HTML currently served by the public domain
         run: |
           set -euo pipefail
-          URL="https://lavdigitalagency.com/?deployment_check=${EXPECTED_SHA}"
-          for attempt in 1 2 3 4 5; do
-            echo "Public verification attempt ${attempt}/5"
-            if curl --fail --silent --show-error --location --max-time 20 \
-              -H 'Cache-Control: no-cache, no-store' \
-              "${URL}" -o live-index.html; then
-              if grep -q 'LAV landing deployment target corrected' live-index.html; then
-                echo "Verified: the public website is serving the updated landing page."
-                exit 0
-              fi
-            fi
-            sleep 3
-          done
-          echo "::error::FTP upload completed, but the public website is not serving the updated index.html."
-          exit 1
+          curl --fail --silent --show-error --location --max-time 25 \
+            -H 'Cache-Control: no-cache, no-store' \
+            "https://lavdigitalagency.com/?deployment_check=${GITHUB_SHA}" \
+            -D live-headers.txt -o live-index.html
+          echo "===== PUBLIC RESPONSE HEADERS ====="
+          sed -n '1,25p' live-headers.txt
+          echo "===== PUBLIC HTML SUMMARY ====="
+          wc -c live-index.html
+          grep -Eio '<title>[^<]*</title>|LAV landing deployment target corrected|Custom app development|PVC NFC cards may incur shipping costs within the USA|Las tarjetas PVC NFC pueden generar costo de envío en USA' live-index.html | head -30 || true
+          echo "===== LOCAL/PUBLIC SHA256 ====="
+          sha256sum index.html live-index.html
+          if grep -q 'LAV landing deployment target corrected' live-index.html; then
+            echo "PUBLIC_DEPLOYMENT_VERIFIED"
+          else
+            echo "::error::FTP destination differs from the document currently served by the public domain."
+            exit 1
+          fi
