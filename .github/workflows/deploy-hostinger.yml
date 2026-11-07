@@ -18,24 +18,11 @@ concurrency:
 
 jobs:
   deploy:
-    name: Publish landing page
+    name: Publish and verify landing page
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Diagnose FTP directory structure
-        env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_PORT: ${{ secrets.FTP_PORT }}
-        run: |
-          set +x
-          for path in "" "public_html/" "domains/" "domains/lavdigitalagency.com/" "domains/lavdigitalagency.com/public_html/" "lavdigitalagency.com/" "lavdigitalagency.com/public_html/"; do
-            echo "===== FTP path: /${path} ====="
-            curl --max-time 5 --silent --show-error --list-only --user "$FTP_USERNAME:$FTP_PASSWORD" "ftp://$FTP_SERVER:$FTP_PORT/${path}" || echo "[No se pudo listar esta ruta]"
-          done
 
       - name: Prepare deployment folder
         run: |
@@ -43,7 +30,6 @@ jobs:
           cp index.html deploy/index.html
 
       - name: Upload landing page to Hostinger
-        if: false # Paused until the real public_html FTP path is confirmed.
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -52,7 +38,28 @@ jobs:
           port: ${{ secrets.FTP_PORT }}
           protocol: ftp
           local-dir: ./deploy/
-          # Explicit Hostinger destination provided for this site.
+          # Exact destination supplied for lavdigitalagency.com in Hostinger.
           server-dir: lavdigitalagency.com/public_html/
           dangerous-clean-slate: false
-          log-level: standard
+          log-level: verbose
+
+      - name: Verify the public website received this exact version
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          URL="https://lavdigitalagency.com/?deployment_check=${EXPECTED_SHA}"
+          for attempt in 1 2 3 4 5; do
+            echo "Public verification attempt ${attempt}/5"
+            if curl --fail --silent --show-error --location --max-time 20 \
+              -H 'Cache-Control: no-cache, no-store' \
+              "${URL}" -o live-index.html; then
+              if grep -q 'LAV landing deployment target corrected' live-index.html; then
+                echo "Verified: the public website is serving the updated landing page."
+                exit 0
+              fi
+            fi
+            sleep 3
+          done
+          echo "::error::FTP upload completed, but the public website is not serving the updated index.html."
+          exit 1
